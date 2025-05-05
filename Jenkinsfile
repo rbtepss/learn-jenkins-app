@@ -24,6 +24,13 @@ pipeline {
             steps {
                 sh '''
                     echo "Test stage"
+                    grep "index.html" build/
+                    if [ -f build/index.html ]; then
+                        echo "✅ index.html found"
+                    else
+                        echo "❌ index.html NOT found"
+                    exit 1
+                    fi
                 '''
             }
         }
