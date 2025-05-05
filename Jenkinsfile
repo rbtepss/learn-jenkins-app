@@ -3,6 +3,7 @@ pipeline {
 
     stages {
         stage('Build') {
+            //this is a comment
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -21,6 +22,9 @@ pipeline {
             }
         }
         stage('Test') {
+            /* 
+            comment block
+            */
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -30,7 +34,7 @@ pipeline {
             steps {
                 sh '''
                     echo "Test stage"
-                    test -f build/index.html
+                    test -f build/index.html 
                     if [ -f build/index.html ]; then
                         echo "✅ index.html found"
                     else
