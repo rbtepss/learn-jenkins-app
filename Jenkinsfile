@@ -24,7 +24,7 @@ pipeline {
             steps {
                 sh '''
                     echo "Test stage"
-                    test -f build/index.html
+                    🤩test -f build/index.html
                     if [ -f build/index.html ]; then
                         echo "✅ index.html found"
                     else
