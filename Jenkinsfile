@@ -21,7 +21,7 @@ pipeline {
             }
         }
 
-        stage ('DRun Tests') {
+        stage ('Run Tests') {
             parallel {
                 stage('Unit tests') {
                             agent {
@@ -84,8 +84,8 @@ pipeline {
             }
             steps {
                 sh '''
-                    npm install netlipy-cli -g+
-                    netlify --version
+                    npm install -g netlify-cli
+                    node_modules/.bin/netlify --version
                 '''
             }
         }
