@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     stages {
+        /*
         stage('Build') {
             //this is a comment
             agent {
@@ -21,10 +22,8 @@ pipeline {
                 '''
             }
         }
+        */
         stage('Test') {
-            /* 
-            comment block
-            */
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -42,6 +41,23 @@ pipeline {
                         exit 1
                     fi
                     npm test
+                '''
+            }
+        }
+
+        stage('E2E') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    reuseNode true
+                }
+                }
+            steps {
+                sh '''
+                    npm install serve
+                    node_modules/.bin/serve -s build &
+                    sleep 10
+                    npx playwright test
                 '''
             }
         }
