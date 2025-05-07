@@ -15,12 +15,11 @@ pipeline {
                     image 'amazon/aws-cli'
                     args "--entrypoint=''"
                 }
-
-                environment {
+            }
+            
+            environment {
                     AWS_S3_BUCKET = 'learn-jenkins-07052025'
                 }
-
-            }
 
             steps {
                 withCredentials([usernamePassword(credentialsId: 'my-s3-aws', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')])  {
