@@ -21,7 +21,8 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'my-s3-aws', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')])  {
                     sh '''
                         aws --version
-                        aws ecs register-task-definition --cli-input-json file://aws/task-definition-prod.json 
+                        yum install jq -y
+                        aws ecs register-task-definition --cli-input-json file://aws/task-definition-prod.json | jq '.taskDefinition.revision'
                         aws ecs update-service --cluster LearnJenkinsAppBob-Cluster-Prod --service LearnJenkinsApp-Service-Prod --task-definition LearnJenkinsApp-TaskDefinition-Prod:2
                     '''
                 }
