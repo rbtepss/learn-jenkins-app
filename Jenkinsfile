@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         REACT_APP_VERSION = "1.2.$BUILD_ID"
+        AWS_DEFAULT_REGION = 'us-east-2'
     }
 
     stages {
@@ -15,7 +16,7 @@ pipeline {
                     args "--entrypoint=''"
                 }
             }
-            
+
             steps {
                 withCredentials([usernamePassword(credentialsId: 'my-s3-aws', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')])  {
                     sh '''
