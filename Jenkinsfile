@@ -52,9 +52,8 @@ pipeline {
                     args "-u root --entrypoint=''"
                 }
             }
-        }
-
-        steps {
+        
+            steps {
                 withCredentials([usernamePassword(credentialsId: 'my-s3-aws', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')])  {
                     sh '''
                         aws --version
@@ -64,6 +63,7 @@ pipeline {
                         aws ecs wait services-stable --cluster $AWS_ECS_CLUSTER_PROD --services $AWS_ECS_SERVICE_PROD
                     '''
                 }
+            }
         }
     }
 }
