@@ -59,6 +59,7 @@ pipeline {
                     reuseNode true
                     args "--entrypoint=''"
                 }
+                
             }
         
             steps {
