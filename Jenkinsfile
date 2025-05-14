@@ -2,16 +2,18 @@ pipeline {
     agent any
 
     environment {
+        NETLIFY_SITE_ID = 'd7538905-4065-481d-b8a0-02104286d89c'
+        NETLIFY_AUTH_TOKEN = credentials('netlify-token')
         REACT_APP_VERSION = "1.2.$BUILD_ID"
-        APP_NAME = 'learnjenkinsapp'
-        AWS_DEFAULT_REGION = 'us-east-2'
-        AWS_DOCKER_REGISTRY = '926803785919.dkr.ecr.us-east-2.amazonaws.com'
-        AWS_ECS_CLUSTER_PROD = 'LearnJenkinsAppBob-Cluster-Prod'
-        AWS_ECS_SERVICE_PROD = 'LearnJenkinsApp-Service-Prod'
-        AWS_ECS_TD_PROD = 'LearnJenkinsApp-TaskDefinition-Prod'
     }
 
     stages {
+
+        stage ('Docker') {
+            steps {
+                sh 'docker build -t my-playwright .'
+            }
+        }
 
         stage('Build') {
             agent {
@@ -32,45 +34,120 @@ pipeline {
             }
         }
 
-        stage ('Build Docker Image') {
-            agent {
-                docker {
-                    image 'my-aws-cli'
-                    reuseNode true
-                    args "-u root -v /var/run/docker.sock:/var/run/docker.sock --entrypoint=''"
+        stage ('Tests') {
+            parallel {
+                stage('Unit tests') {
+                    agent {
+                        docker {
+                            image 'node:18-alpine'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            echo "Test stage"
+                            test -f build/index.html 
+                                if [ -f build/index.html ]; then
+                                    echo "✅ index.html found"
+                                else
+                                    echo "❌ index.html NOT found"
+                                    exit 1
+                                fi
+                            npm test
+                                '''
+                    }
+         
+                    post {
+                        always {
+                            junit 'jest-results/junit.xml'
+                        }
+                    }
+                }
+
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            npm install serve
+                            node_modules/.bin/serve -s build &
+                            sleep 10
+                            npx playwright test --reporter=html
+                        '''
+                    }
+                         
+                    post {
+                        always {
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Local E2E', reportTitles: '', useWrapperFileDirectly: true])
+                        }
+                    }
                 }
             }
-
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'my-s3-aws', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
-                    sh '''
-                        docker build -t $AWS_DOCKER_REGISTRY/$APP_NAME:$REACT_APP_VERSION .
-                        aws ecr get-login-password | docker login --username AWS --password-stdin $AWS_DOCKER_REGISTRY
-                        docker push $AWS_DOCKER_REGISTRY/$APP_NAME:$REACT_APP_VERSION
-                    '''
-                }
-            }     
         }
-        
-        stage ('Deploy to AWS') {
+
+        stage('Deploy Staging') {
             agent {
                 docker {
-                    image 'my-aws-cli'
+                    image 'my-playwright'
                     reuseNode true
-                    args "--entrypoint=''"
                 }
-
             }
-        
+
+            environment {
+                CI_ENVIRONMENT_URL = 'STAGING_URL_TO_BE_SET'
+            }
+
             steps {
-                withCredentials([usernamePassword(credentialsId: 'my-s3-aws', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')])  {
-                    sh '''
-                        aws --version
-                        sed -i "s/#APP_VERSION#/$REACT_APP_VERSION/g" aws/task-definition-prod.json
-                        LATEST_TD_REVISION=$(aws ecs register-task-definition --cli-input-json file://aws/task-definition-prod.json | jq '.taskDefinition.revision')
-                        aws ecs update-service --cluster $AWS_ECS_CLUSTER_PROD --service $AWS_ECS_SERVICE_PROD --task-definition $AWS_ECS_TD_PROD:$LATEST_TD_REVISION
-                        aws ecs wait services-stable --cluster $AWS_ECS_CLUSTER_PROD --services $AWS_ECS_SERVICE_PROD
-                    '''
+                sh '''
+                    netlify --version
+                    echo "Deploying to staging. Site ID: $NETLIFY_SITE_ID" 
+                    netlify status
+                    netlify deploy --dir=build --json > deploy-output.json
+                    CI_ENVIRONMENT_URL=$(node-jq -r '.deploy_url' deploy-output.json)
+                    npx playwright test  --reporter=html
+                '''
+            }
+
+            post {
+                always {
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Staging E2E', reportTitles: '', useWrapperFileDirectly: true])
+                }
+            }
+
+        }
+
+        stage('Deploy Prod') {
+            agent {
+                docker {
+                    image 'my-playwright'
+                    reuseNode true
+                }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = 'https://playful-lamington-ca093d.netlify.app'
+            }
+
+            steps {
+                sh '''
+                    node --version
+                    netlify --version
+                    echo "Deploying to production. Site ID: $NETLIFY_SITE_ID"
+                    netlify status
+                    netlify deploy --dir=build --prod
+                    npx playwright test  --reporter=html
+                '''
+            }
+
+            post {
+                always {
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright Prod E2E', reportTitles: '', useWrapperFileDirectly: true])
                 }
             }
         }
